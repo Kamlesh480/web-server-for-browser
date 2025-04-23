@@ -1,3 +1,4 @@
+import os
 import subprocess
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
@@ -63,15 +64,35 @@ def get_active_tab_url(request):
     except subprocess.CalledProcessError as e:
         return JsonResponse({'error': 'Unable to fetch active tab URL'}, status=500)
 
+
 @csrf_exempt
 def cleanup_browser(request):
-    browser = request.GET.get('browser')
+    browser = request.GET.get('browser', '').lower()
+
     try:
-        # Warning: Customize these paths per OS/browser if necessary!
-        if browser.lower() == "google chrome":
-            subprocess.run(['rm', '-rf', '~/Library/Application\\ Support/Google/Chrome'], shell=True)
-        elif browser.lower() == "firefox":
-            subprocess.run(['rm', '-rf', '~/Library/Application\\ Support/Firefox'], shell=True)
+        if browser == "google chrome":
+            chrome_path = os.path.expanduser('~/Library/Application Support/Google/Chrome')
+            subprocess.run(['rm', '-rf', chrome_path], check=True)
+        
+        elif browser == "firefox":
+            firefox_path = os.path.expanduser('~/Library/Application Support/Firefox')
+            subprocess.run(['rm', '-rf', firefox_path], check=True)
+        
+        elif browser == "safari":
+            safari_cache = os.path.expanduser('~/Library/Caches/com.apple.Safari')
+            safari_history = os.path.expanduser('~/Library/Safari/History.db')
+            safari_cookies = os.path.expanduser('~/Library/Cookies/Cookies.binarycookies')
+            safari_local_storage = os.path.expanduser('~/Library/Safari/LocalStorage')
+            safari_databases = os.path.expanduser('~/Library/Safari/Databases')
+
+            # Clear Safari cache & related data
+            for path in [safari_cache, safari_history, safari_cookies, safari_local_storage, safari_databases]:
+                subprocess.run(['rm', '-rf', path], check=True)
+
+        else:
+            return JsonResponse({'error': f'Unsupported browser: {browser}'}, status=400)
+
         return JsonResponse({'message': f'{browser} data cleaned up'})
-    except Exception as e:
-        return JsonResponse({'error': str(e)}, status=500)
+
+    except subprocess.CalledProcessError as e:
+        return JsonResponse({'error': f'Error cleaning browser data: {str(e)}'}, status=500)
